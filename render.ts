@@ -1,4 +1,4 @@
-import { IndexedSnapshot, indexSnapshot, lastNPosts, Post, Snapshot, User  } from "./model"
+import { IndexedSnapshot, Post, Comment, CombinedPost  } from "./model"
 
 const title = 'Hex News'
 const url = '/'
@@ -22,31 +22,6 @@ function postTitle(post: Post) {
 
 const rank = (index?: number) => typeof index === 'number' ? index + 1 + '.' : ''
 
-interface Comment extends Post {
-    level: number
-}
-
-export function findChildPosts(snapshot: IndexedSnapshot, post: Post, level: number = 0): Comment[] {
-    const childPosts: Comment[] = []
-
-    // const postIndex = snapshot.postIndex[post.id]
-    // TODO optimze for a single linear walk by saving child post indexes and comparing them with parent index
-    for (let i = 0; i < snapshot.posts.length; i++) {
-        const p = snapshot.posts[i]
-        if (p.parent === post.id) {
-            childPosts.push({
-                ...p,
-                level,
-            })
-
-            const grandChildPosts = findChildPosts(snapshot, p, level + 1)
-            childPosts.push(...grandChildPosts)
-        }
-    }
-
-    return childPosts
-}
-
 const pluralize = (word: string, count: number) => count > 1 ? word + 's' : word
 
 export function renderPostTitle(post: Post, index?: number): string {
@@ -67,16 +42,11 @@ export function renderPostMeta(post: Post, comments: Post[], votes: number): str
             by
             <a class="user">${post.user}</a>
             |
-            <a href="posts/${post.id}.html">${comments.length} ${pluralize('comment', comments.length)}</a>
+            <a href="posts/${post.id}.html" onclick="hexnews.router(event)">${comments.length} ${pluralize('comment', comments.length)}</a>
         </td>
     </tr>
-    `
+`
 }
-
-const numVotes = (indexedSnapshot: IndexedSnapshot, post: Post) =>
-    indexedSnapshot.postVotes[post.id]
-    ? indexedSnapshot.postVotes[post.id].size + 1
-    : 1
 
 export const padding = 10
 export const color = 'black'
@@ -127,6 +97,7 @@ hr {
 }
 
 .rank {
+    padding-top: ${padding / 2};
     padding-left: ${padding};
     color: gray;
 }
@@ -141,7 +112,7 @@ hr {
 
 .post-title {
     padding-top: ${padding};
-    padding-bottom: ${padding};
+    padding-bottom: ${padding / 2};
 }
 
 .meta {
@@ -171,6 +142,10 @@ hr {
     text-align: center;
 }
 
+.comment-meta {
+    padding-top: ${padding};
+}
+
 .comment {
     padding-top: ${padding};
     font-size: smaller;
@@ -188,6 +163,8 @@ const head = (indexedSnapshot: IndexedSnapshot) => `
         <title>${title}</title>
         <style>${css}
         </style>
+        <script src="hexnews.js"></script>
+        <script>var snapshot = ${JSON.stringify(indexedSnapshot)}</script>
     </head>
 `
 const headerHtml = `
@@ -213,19 +190,7 @@ const footerHtml = `
     </tr>
 `
 
-interface CombinedPost extends Post {
-    comments: Post[]
-    votes: number
-}
-
-const combinePost = (post: Post, comments: Post[], votes: number): CombinedPost => ({ ...post, comments, votes})
-
-export function renderNews(snapshot: IndexedSnapshot): string {
-    const posts = lastNPosts(snapshot, 30, true)
-    const postComments = posts.map(post => findChildPosts(snapshot, post))
-    const postVotes = posts.map(post => numVotes(snapshot, post))
-    const combinedPosts = posts.map((post, index) => combinePost(post, postComments[index], postVotes[index]))
-    const sortedPosts = combinedPosts.sort((a, b) => b.votes - a.votes !== 0 ? b.votes - a.votes : b.comments.length - a.comments.length)
+export function renderNews(snapshot: IndexedSnapshot, posts: CombinedPost[]) {
     const html = `
         <!DOCTYPE html5>
         <html>
@@ -235,7 +200,7 @@ export function renderNews(snapshot: IndexedSnapshot): string {
                 <table class="main">
                     ${headerHtml}
                     ${
-                        sortedPosts.map((post, index) => renderPostTitle(post, index) + renderPostMeta(post, post.comments, post.votes)).join('')
+                        posts.map((post, index) => renderPostTitle(post, index) + renderPostMeta(post, post.comments, post.votes)).join('')
                     }
                     ${footerHtml}
                 </table>
@@ -248,7 +213,7 @@ export function renderNews(snapshot: IndexedSnapshot): string {
 
 export function renderComment(post: Comment): string {
     return `
-    <tr>
+    <tr class="comment-meta">
         <td colspan=1></td>
         <td class="meta" style="padding-left: ${post.level * padding}">
             <a class="user">${post.user}</a>
@@ -265,9 +230,7 @@ export function renderCommentText(post: Comment): string {
     return `<span class="comment" style="padding-left: ${post.level * padding}">${post.text}</span>`
 }
 
-export function renderPost(snapshot: IndexedSnapshot, post: Post): string {
-    const comments = findChildPosts(snapshot, post)
-    const votes = numVotes(snapshot, post)
+export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comment[], votes: number): string {
     const html = `
         <!DOCTYPE html5>
         <html>

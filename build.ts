@@ -1,21 +1,9 @@
 import { generateTestSnapshot } from './test'
 import { writeFileSync, mkdirSync } from 'fs'
-import { IndexedSnapshot, indexSnapshot, lastNPosts, Post } from './model'
-import { findChildPosts, renderNews, renderPost } from './render'
-
-interface CombinedPost extends Post {
-    comments: Post[]
-    votes: number
-}
+import { IndexedSnapshot, indexSnapshot, lastNPosts, Post, Comment, findChildPosts, newsPagePosts } from './model'
+import { renderNews, renderPost } from './render'
 
 const distDir = 'dist'
-
-const combinePost = (post: Post, comments: Post[], votes: number): CombinedPost => ({ ...post, comments, votes})
-
-const numVotes = (indexedSnapshot: IndexedSnapshot, post: Post) =>
-    indexedSnapshot.postVotes[post.id]
-    ? indexedSnapshot.postVotes[post.id].size + 1
-    : 1
 
 async function build() {
     try { mkdirSync(`${distDir}/posts`, { recursive: true}) } catch (e) {}
@@ -23,19 +11,14 @@ async function build() {
     const snapshot = await generateTestSnapshot()
 
     const indexedSnapshot = indexSnapshot(snapshot)
-    const posts = lastNPosts(snapshot, 30, true)
-    const postComments = posts.map(post => findChildPosts(indexedSnapshot, post))
-    const postVotes = posts.map(post => numVotes(indexedSnapshot, post))
-    const combinedPosts = posts.map((post, index) => combinePost(post, postComments[index], postVotes[index]))
-    const sortedPosts = combinedPosts.sort((a, b) => b.votes - a.votes !== 0 ? b.votes - a.votes : b.comments.length - a.comments.length)
+    const sortedPosts = newsPagePosts(indexedSnapshot, 30)
 
-    const newsPage = renderNews(indexedSnapshot)
+    const newsPage = renderNews(indexedSnapshot, sortedPosts)
     writeFileSync(`${distDir}/index.html`, newsPage)
 
-    for (const post of posts) {
-        const postPage = renderPost(indexedSnapshot, post)
+    for (const post of sortedPosts) {
+        const postPage = renderPost(indexedSnapshot, post, post.comments, post.votes)
         writeFileSync(`${distDir}/posts/${post.id}.html`, postPage)
-
     }
 }
 

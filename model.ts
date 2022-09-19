@@ -1,9 +1,6 @@
-import { Bee, Utils } from "@ethersphere/bee-js"
+import { Utils } from "@ethersphere/bee-js"
 
-declare var TextDecoder: any
-declare var TextEncoder: any
-
-type Update = InviteUpdate | PostUpdate | VoteUpdate
+export type Update = InviteUpdate | PostUpdate | VoteUpdate
 
 export interface InviteUpdate {
     type: 'invite'
@@ -26,6 +23,15 @@ export interface VoteUpdate {
 export interface Post extends PostUpdate {
     id: string
     user: string
+}
+
+export interface Comment extends Post {
+    level: number
+}
+
+export interface CombinedPost extends Post {
+    comments: Comment[]
+    votes: number
 }
 
 export interface Vote extends VoteUpdate {
@@ -51,7 +57,7 @@ export interface StorageBackend {
     addUpdate: (identity: PrivateIdentity, index: number, update: Update) => Promise<void>
 }
 
-const makeTopic = (address: string, index: number) => `${address}/updates/${index}`
+export const makeTopic = (address: string, index: number) => `${address}/updates/${index}`
 
 export const makePostId = (post: PostUpdate) => Utils.bytesToHex(Utils.keccak256Hash(JSON.stringify(post)))
 
@@ -66,36 +72,6 @@ export const makeMemoryStorage = (): StorageBackend => {
             const topic = makeTopic(identity.address, index)
             memory[topic] = update
         }
-    }
-}
-
-export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000'): StorageBackend => {
-    const bee = new Bee(url)
-    const postageBatchId = '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
-    return {
-        findUpdate: async (identity: PublicIdentity, index: number): Promise<Update | undefined> => {
-            const topic = makeTopic(`${seed}/${identity.address}`, index)
-            const identifier = Utils.keccak256Hash(topic)
-            const socReader = bee.makeSOCReader(identity.address)
-            try {
-                const soc = await socReader.download(identifier)
-                const data = soc.payload()
-                const text = new TextDecoder().decode(data)
-                const update = JSON.parse(text) as Update
-                return update
-            } catch (e) {
-                return undefined
-            }
-        },
-        addUpdate: async (identity, index, update) => {
-            const topic = makeTopic(`${seed}/${identity.address}`, index)
-            console.debug({ topic })
-            const identifier = Utils.keccak256Hash(topic)
-            const socWriter = bee.makeSOCWriter(identity.privateKey)
-            const updateJSON = JSON.stringify(update)
-            const data = new TextEncoder().encode(updateJSON)
-            await socWriter.upload(postageBatchId, identifier, data)
-        },
     }
 }
 
@@ -243,3 +219,49 @@ export function lastNPosts(snapshot: Snapshot, numPosts: number, isTopLevel: boo
     return posts
 }
 
+export function findChildPosts(snapshot: IndexedSnapshot, post: Post): Comment[] {
+    const childPosts: Record<string, Comment> = {}
+
+    const postIndex = snapshot.postIndex[post.id]
+    for (let i = postIndex + 1; i < snapshot.posts.length; i++) {
+        const p = snapshot.posts[i]
+        if (p.parent === post.id) {
+            childPosts[p.id] = {
+                ...p,
+                level: 0,
+            }
+        } else if (p.parent && childPosts[p.parent]) {
+            const parent = childPosts[p.parent]
+            childPosts[p.id] = {
+                ...p,
+                level: parent.level + 1,
+            }
+        }
+    }
+
+    return Object.values(childPosts)
+}
+
+const combinePost = (post: Post, comments: Comment[], votes: number): CombinedPost => ({ ...post, comments, votes})
+
+const numVotes = (indexedSnapshot: IndexedSnapshot, post: Post) =>
+    indexedSnapshot.postVotes[post.id]
+    ? indexedSnapshot.postVotes[post.id].size + 1
+    : 1
+
+export function getPostById(indexedSnapshot: IndexedSnapshot, id: string): CombinedPost {
+    const postIndex = indexedSnapshot.postIndex[id]
+    const post = indexedSnapshot.posts[postIndex]
+    const comments = findChildPosts(indexedSnapshot, post)
+    const votes = numVotes(indexedSnapshot, post)
+    return combinePost(post, comments, votes)
+}
+
+export function newsPagePosts(snapshot: IndexedSnapshot, numPosts: number): CombinedPost[] {
+    const posts = lastNPosts(snapshot, numPosts, true)
+    const postComments = posts.map(post => findChildPosts(snapshot, post))
+    const postVotes = posts.map(post => numVotes(snapshot, post))
+    const combinedPosts = posts.map((post, index) => combinePost(post, postComments[index], postVotes[index]))
+    const sortedPosts = combinedPosts.sort((a, b) => b.votes - a.votes !== 0 ? b.votes - a.votes : b.comments.length - a.comments.length)
+    return sortedPosts
+}

@@ -1,6 +1,10 @@
-import { Snapshot, emptySnapshot, makeMemoryStorage, updateSnapshot, PostUpdate, PublicIdentity, StorageBackend, Post, PrivateIdentity, findUpdates, InviteUpdate, makePostId, VoteUpdate } from "./model"
+import { Snapshot, emptySnapshot, makeMemoryStorage, updateSnapshot, PostUpdate, PublicIdentity, StorageBackend, Post, PrivateIdentity, findUpdates, InviteUpdate, makePostId, VoteUpdate, makeTopic, Update } from "./model"
 import { renderNews, renderPost } from "./render"
 import { randomBytes } from 'crypto'
+import { Bee, Utils } from "@ethersphere/bee-js"
+
+declare var TextDecoder: any
+declare var TextEncoder: any
 
 const users = [
     {
@@ -67,30 +71,23 @@ const users = [
 
 ]
 
-function identityByName(identity: string | PrivateIdentity): PrivateIdentity {
-    if (typeof identity === 'object') {
-        return identity
-    }
-    const index = users.findIndex(user => user.nick === identity)
+function identity(nick: string): PrivateIdentity {
+    const index = users.findIndex(user => user.nick === nick)
     if (index === -1) {
-        throw `can not found user by name ${identity}`
+        throw `can not found user by name ${nick}`
     }
     return users[index]
 }
 
-function addressByName(identity: string | PublicIdentity): string {
-    if (typeof identity === 'object') {
-        return identity.address
-    }
-    const index = users.findIndex(user => user.nick === identity)
+function address(nick: string): string {
+    const index = users.findIndex(user => user.nick === nick)
     if (index === -1) {
-        throw `can not found user by name ${identity}`
+        throw `can not found user by name ${nick}`
     }
     return users[index].address
 }
 
-async function addPost(storage: StorageBackend, nameOrIdentity: string | PrivateIdentity, title: string, link?: string): Promise<Post> {
-    const identity = identityByName(nameOrIdentity)
+async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link?: string): Promise<Post> {
     const updates = await findUpdates(storage, identity)
     const post: PostUpdate = {
         type: 'post',
@@ -106,8 +103,7 @@ async function addPost(storage: StorageBackend, nameOrIdentity: string | Private
     }
 }
 
-async function addComment(storage: StorageBackend, nameOrIdentity: string | PrivateIdentity, text: string, parent: string): Promise<Post> {
-    const identity = identityByName(nameOrIdentity)
+async function addComment(storage: StorageBackend, identity: PrivateIdentity, text: string, parent: string): Promise<Post> {
     const updates = await findUpdates(storage, identity)
     const post: PostUpdate = {
         type: 'post',
@@ -123,19 +119,16 @@ async function addComment(storage: StorageBackend, nameOrIdentity: string | Priv
     }
 }
 
-async function addInvite(storage: StorageBackend, nameOrIdentity: string | PrivateIdentity, otherNameOrIdentity: string | PublicIdentity){
-    const identity = identityByName(nameOrIdentity)
-    const address = addressByName(otherNameOrIdentity)
+async function addInvite(storage: StorageBackend, identity: PrivateIdentity, otherIdentity: PublicIdentity){
     const updates = await findUpdates(storage, identity)
     const invite: InviteUpdate = {
         type: 'invite',
-        user: address,
+        user: otherIdentity.address,
     }
     await storage.addUpdate(identity, updates.length, invite)
 }
 
-async function addVote(storage: StorageBackend, nameOrIdentity: string | PrivateIdentity, post: string) {
-    const identity = identityByName(nameOrIdentity)
+async function addVote(storage: StorageBackend, identity: PrivateIdentity, post: string) {
     const updates = await findUpdates(storage, identity)
     const invite: VoteUpdate = {
         type: 'vote',
@@ -145,7 +138,6 @@ async function addVote(storage: StorageBackend, nameOrIdentity: string | Private
 
 }
 
-
 const makeRootUserSnapshot = (address: string): Snapshot => ({
     ...emptySnapshot,
     users: [{
@@ -154,6 +146,36 @@ const makeRootUserSnapshot = (address: string): Snapshot => ({
         lastIndex: 0,
     }],
 })
+
+export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000'): StorageBackend => {
+    const bee = new Bee(url)
+    const postageBatchId = '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
+    return {
+        findUpdate: async (identity: PublicIdentity, index: number): Promise<Update | undefined> => {
+            const topic = makeTopic(`${seed}/${identity.address}`, index)
+            const identifier = Utils.keccak256Hash(topic)
+            const socReader = bee.makeSOCReader(identity.address)
+            try {
+                const soc = await socReader.download(identifier)
+                const data = soc.payload()
+                const text = new TextDecoder().decode(data)
+                const update = JSON.parse(text) as Update
+                return update
+            } catch (e) {
+                return undefined
+            }
+        },
+        addUpdate: async (identity, index, update) => {
+            const topic = makeTopic(`${seed}/${identity.address}`, index)
+            console.debug({ topic })
+            const identifier = Utils.keccak256Hash(topic)
+            const socWriter = bee.makeSOCWriter(identity.privateKey)
+            const updateJSON = JSON.stringify(update)
+            const data = new TextEncoder().encode(updateJSON)
+            await socWriter.upload(postageBatchId, identifier, data)
+        },
+    }
+}
 
 export async function generateTestSnapshot() {
     const storage = makeMemoryStorage()
@@ -172,12 +194,13 @@ export async function generateTestSnapshot() {
     await addVote(storage, users[2], swarmDesktopPost.id)
 
     const rootSnapshot = makeRootUserSnapshot(users[0].address)
-    const snapshot = await updateSnapshot(storage, rootSnapshot)
+    let snapshot = await updateSnapshot(storage, rootSnapshot)
 
     await addInvite(storage, users[2], users[3])
     await addPost(storage, users[3], `EthLimo Summer Updates, Roadmap and More`, 'https://ethlimo.substack.com/p/summer-updates-roadmap-and-more')
     const coolPost = await addComment(storage, users[3], `Cool post`, firstPost.id)
-    await addComment(storage, users[0], `Thanks!`, coolPost.id)
+
+    snapshot = await updateSnapshot(storage, snapshot)
 
     await addVote(storage, users[1], firstPost.id)
     await addVote(storage, users[2], firstPost.id)
@@ -208,9 +231,11 @@ export async function generateTestSnapshot() {
     await addInvite(storage, users[10], users[11])
     await addPost(storage, users[11], `Fileverse: File sharing between blockchain addresses`, 'https://fileverse.io/')
 
-    const outputSnapshot = await updateSnapshot(storage, snapshot)
+    await addComment(storage, users[0], `Thanks!`, coolPost.id)
 
-    return outputSnapshot
+    snapshot = await updateSnapshot(storage, snapshot)
+
+    return snapshot
 }
 
 // test().catch(console.error)

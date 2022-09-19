@@ -5,12 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ts-node build"
+    "build": "ts-node build && npx esbuild app.ts --bundle --outfile=dist/hexnews.js --global-name=hexnews"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "esbuild": "^0.15.8",
     "ts-node": "^10.9.1"
   },
   "dependencies": {
