@@ -72,7 +72,7 @@ a:hover {
 }
 
 textarea {
-    margin-top: ${padding};
+    margin-top: ${padding}px;
     padding: 2;
     border-width: 2px;
     border: black;
@@ -97,8 +97,8 @@ hr {
 }
 
 .rank {
-    padding-top: ${padding / 2};
-    padding-left: ${padding};
+    padding-top: ${padding / 2}px;
+    padding-left: ${padding}px;
     color: gray;
 }
 
@@ -106,13 +106,13 @@ hr {
     color: ${color};
     font-weight: bold;
     font-size: large;
-    padding-top: ${padding};
-    padding-bottom: ${padding};
+    padding-top: ${padding}px;
+    padding-bottom: ${padding}px;
 }
 
 .post-title {
-    padding-top: ${padding};
-    padding-bottom: ${padding / 2};
+    padding-top: ${padding}px;
+    padding-bottom: ${padding / 2}px;
 }
 
 .meta {
@@ -132,28 +132,28 @@ hr {
 
 .separator {
     height: 2;
-    padding-top: ${2 * padding};
-    padding-bottom: ${2 * padding};
+    padding-top: ${2 * padding}px;
+    padding-bottom: ${2 * padding}px;
 }
 
 .footer {
-    padding-top: ${padding};
-    padding-bottom: ${padding};
+    padding-top: ${padding}px;
+    padding-bottom: ${padding}px;
     text-align: center;
 }
 
 .comment-meta {
-    padding-top: ${padding};
+    padding-top: ${padding}px;
 }
 
 .comment {
-    padding-top: ${padding};
+    padding-top: ${padding}px;
     font-size: smaller;
 }
 
 .button {
     font-size: normal;
-    padding: ${padding}
+    padding: ${padding}px;
 }
 `
 
@@ -192,7 +192,7 @@ const footerHtml = `
 
 export function renderNews(snapshot: IndexedSnapshot, posts: CombinedPost[]) {
     const html = `
-        <!DOCTYPE html5>
+        <!DOCTYPE html>
         <html>
             ${head(snapshot)}
             <body>
@@ -232,7 +232,7 @@ export function renderCommentText(post: Comment): string {
 
 export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comment[], votes: number): string {
     const html = `
-        <!DOCTYPE html5>
+        <!DOCTYPE html>
         <html>
             ${head(snapshot)}
             <body>
