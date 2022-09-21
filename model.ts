@@ -169,7 +169,7 @@ export async function updateSnapshot(storage: StorageBackend, snapshot: Snapshot
     return output
 }
 
-export function indexSnapshot(snapshot: Snapshot = emptySnapshot): IndexedSnapshot {
+export function indexSnapshot(snapshot: Readonly<Snapshot> = emptySnapshot): IndexedSnapshot {
     const output: IndexedSnapshot = {
         ...snapshot,
         userIndex: {},

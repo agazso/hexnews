@@ -6,7 +6,7 @@ import { Bee, Utils } from "@ethersphere/bee-js"
 declare var TextDecoder: any
 declare var TextEncoder: any
 
-const users = [
+export const users = [
     {
         privateKey: '0x2db11bcf42c8b5047a750ec3dabf1fb196f34b9bf37b30c0ed98868a8b686073',
         address: '0xd7fb8944204c56fe4887d1feba85cc45490a777b',
@@ -87,7 +87,7 @@ function address(nick: string): string {
     return users[index].address
 }
 
-async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link?: string): Promise<Post> {
+export async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link?: string): Promise<Post> {
     const updates = await findUpdates(storage, identity)
     const post: PostUpdate = {
         type: 'post',
@@ -138,12 +138,12 @@ async function addVote(storage: StorageBackend, identity: PrivateIdentity, post:
 
 }
 
-const makeRootUserSnapshot = (address: string): Snapshot => ({
+export const makeRootUserSnapshot = (address: string): Snapshot => ({
     ...emptySnapshot,
     users: [{
-        invitedBy: address,
         address,
         lastIndex: 0,
+        invitedBy: address,
     }],
 })
 
@@ -153,6 +153,7 @@ export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: st
     return {
         findUpdate: async (identity: PublicIdentity, index: number): Promise<Update | undefined> => {
             const topic = makeTopic(`${seed}/${identity.address}`, index)
+            console.debug({ topic })
             const identifier = Utils.keccak256Hash(topic)
             const socReader = bee.makeSOCReader(identity.address)
             try {
@@ -167,7 +168,7 @@ export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: st
         },
         addUpdate: async (identity, index, update) => {
             const topic = makeTopic(`${seed}/${identity.address}`, index)
-            console.debug({ topic })
+            console.debug({ identity, index, update, topic })
             const identifier = Utils.keccak256Hash(topic)
             const socWriter = bee.makeSOCWriter(identity.privateKey)
             const updateJSON = JSON.stringify(update)
@@ -177,10 +178,7 @@ export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: st
     }
 }
 
-export async function generateTestSnapshot() {
-    const storage = makeMemoryStorage()
-    // const storage = makeSwarmStorage(randomBytes(32).toString('hex'))
-
+export async function generateTestSnapshot(storage: StorageBackend = makeMemoryStorage()) {
     const firstPost = await addPost(storage, users[0], `Hex News launched! 🔥💥📣`, 'https://hexnews.bzz.link')
     const secondPost = await addPost(storage, users[0], `Swarm.City Boardwalk Implementation in Typescript`, 'https://github.com/swarmcity/boardwalk-ts/issues')
     await addInvite(storage, users[0], users[1])

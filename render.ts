@@ -170,7 +170,7 @@ const head = (indexedSnapshot: IndexedSnapshot) => `
 const headerHtml = `
     <tr class="header">
         <td class="logo"></td>
-        <td class="title"><a class="title" href="${url}">${title}</a></td>
+        <td class="title"><a class="title" href="${url}">${title} <small>beta</small></a></td>
     </tr>
 `
 const link = (title: string, url: string) => `<a href="${url}">${title}</a>`
