@@ -1,10 +1,5 @@
-import { readFileSync } from 'fs'
 import { CombinedPost, isInvite, isPost, isVote, Post, Comment, User, Vote } from './model'
 import { StorageBackend, findUpdates, makePostId } from './storage'
-
-// declare var TextDecoder: any
-
-export const SNAPSHOT_FILE = 'snapshot.json'
 
 export interface Snapshot {
     users: User[]
@@ -22,6 +17,43 @@ export const emptySnapshot: Snapshot = {
     users: [],
     posts: [],
     votes: [],
+}
+
+function makeAsyncQueue(concurrency = 1) {
+    const queue: (() => void)[] = []
+    const listeners: any[] = []
+    let running = 0
+    async function runOneTask() {
+        if (queue.length > 0 && running < concurrency) {
+            running++
+            const task = queue.shift()
+            try {
+                task && (await task())
+            } finally {
+                if (--running === 0) {
+                    while (listeners.length > 0) {
+                        listeners.shift()()
+                    }
+                }
+                runOneTask()
+            }
+        }
+    }
+    async function drain() {
+        if (!running) {
+            return Promise.resolve()
+        }
+        return new Promise(resolve => {
+            listeners.push(resolve)
+        })
+    }
+    return {
+        enqueue(fn: any) {
+            queue.push(fn)
+            runOneTask()
+        },
+        drain
+    }
 }
 
 export async function updateSnapshot(storage: StorageBackend, snapshot: Snapshot = emptySnapshot): Promise<Snapshot> {
@@ -157,16 +189,3 @@ export function getNextIndex(snapshot: IndexedSnapshot, address: string): number
     const user = snapshot.users[userIndex]
     return user.lastIndex // TODO rename to nextIndex
 }
-
-
-export function readSnapshotFromFile(file: string = SNAPSHOT_FILE): Snapshot | undefined {
-    try {
-        const data = readFileSync(file)
-        const json = new TextDecoder().decode(data)
-        const snapshot = JSON.parse(json) as Snapshot
-        return snapshot
-    } catch (e) {
-        return undefined
-    }
-}
-
