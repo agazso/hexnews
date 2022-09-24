@@ -265,3 +265,13 @@ export function newsPagePosts(snapshot: IndexedSnapshot, numPosts: number): Comb
     const sortedPosts = combinedPosts.sort((a, b) => b.votes - a.votes !== 0 ? b.votes - a.votes : b.comments.length - a.comments.length)
     return sortedPosts
 }
+
+export function getNextIndex(snapshot: IndexedSnapshot, address: string): number {
+    const userIndex = snapshot.userIndex[address]
+    if (!userIndex) {
+        return 0
+    }
+
+    const user = snapshot.users[userIndex]
+    return user.lastIndex // TODO rename to nextIndex
+}

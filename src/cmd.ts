@@ -1,4 +1,6 @@
+import { buildSite } from './build'
 import { SEED } from './const'
+import { indexSnapshot } from './model'
 import { addPost, generateTestSnapshot, makeSwarmStorage, users } from './test'
 
 
@@ -18,9 +20,16 @@ async function post(...args: string[]) {
     await addPost(storage, users[0], title, url)
 }
 
+async function build(...args: string[]) {
+    const snapshot = await generateTestSnapshot()
+    const indexedSnapshot = indexSnapshot(snapshot)
+    buildSite(indexedSnapshot)
+}
+
 async function main() {
     const [cmd, ...rest] = process.argv.slice(2)
     const commands: Record<string, (...args: string[]) => Promise<void>> = {
+        'build': build,
         'gendata': gendata,
         'post': post,
     }

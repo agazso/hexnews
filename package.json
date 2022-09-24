@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
+    "indexer": "npx ts-node indexer",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ts-node build && npx esbuild app.ts --bundle --outfile=dist/hexnews.js --global-name=hexnews"
+    "build": "ts-node cmd build && npx esbuild app.ts --bundle --outfile=dist/hexnews.js --global-name=hexnews"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +17,6 @@
     "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "@ethersphere/bee-js": "^5.0.0"
+    "@ethersphere/bee-js": "file:../../bee-js"
   }
 }

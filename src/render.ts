@@ -28,7 +28,7 @@ export function renderPostTitle(post: Post, index?: number): string {
     return `
     <tr class="post-title">
         <td class="rank">${rank(index)}</td>
-        <td class="post-title">${postTitle(post)}${postSite(post)}</td>
+        <td class="post-title">${postTitle(post)}${hspace(halfPadding)}${postSite(post)}</td>
     </tr>
 `
 }
@@ -42,13 +42,14 @@ export function renderPostMeta(post: Post, comments: Post[], votes: number): str
             by
             <a class="user">${post.user}</a>
             |
-            <a href="posts/${post.id}.html" onclick="hexnews.router(event)">${comments.length} ${pluralize('comment', comments.length)}</a>
+            <a href="/#/posts/${post.id}" onclick="hexnews.router(event)">${comments.length} ${pluralize('comment', comments.length)}</a>
         </td>
     </tr>
 `
 }
 
 export const padding = 10
+export const halfPadding = padding / 2
 export const color = 'black'
 
 export const css = `
@@ -65,10 +66,11 @@ html {
 a {
     color: inherit;
     text-decoration: none;
+    cursor: pointer;
 }
 
 a:hover {
-    text-decoration: underline;
+    text-decoration: none;
 }
 
 textarea {
@@ -89,7 +91,14 @@ table {
 
 hr {
     background-color: lightblue;
-    height: 2;
+    height: 2px;
+    margin-top: ${2 * padding}px;
+    margin-bottom: ${2 * padding}px;
+}
+
+input, textarea {
+    padding: ${padding / 2}px;
+    margin: ${padding / 2}px;
 }
 
 .header {
@@ -131,7 +140,6 @@ hr {
 }
 
 .separator {
-    height: 2;
     padding-top: ${2 * padding}px;
     padding-bottom: ${2 * padding}px;
 }
@@ -152,8 +160,17 @@ hr {
 }
 
 .button {
-    font-size: normal;
+    font-size: initial;
     padding: ${padding}px;
+}
+
+.menu {
+    font-size: medium;
+    font-weight: normal;
+}
+
+.label {
+    color: gray;
 }
 `
 
@@ -167,10 +184,20 @@ const head = (indexedSnapshot: IndexedSnapshot) => `
         <script>var snapshot = ${JSON.stringify(indexedSnapshot)}</script>
     </head>
 `
+
+const hspace = (padding: number) => `<span style="padding-left: ${padding}px"></span>`
+
 const headerHtml = `
     <tr class="header">
         <td class="logo"></td>
-        <td class="title"><a class="title" href="${url}">${title} <small>beta</small></a></td>
+        <td class="title">
+            <a class="title" href="/" onclick="hexnews.router(event)">${title} ß</a>
+            ${hspace(30)}
+            <a class="menu" href="/#/submit" onclick="hexnews.router(event)">submit</a>
+        </td>
+        <td class="right">
+            <a class="menu" href="/#/login" onclick="hexnews.router(event)">login</a>
+        </td>
     </tr>
 `
 const link = (title: string, url: string) => `<a href="${url}">${title}</a>`
@@ -188,6 +215,7 @@ const footerHtml = `
             </span>
         </td>
     </tr>
+    <tr><td colspan=3 class="separator"></tr>
 `
 
 export function renderNews(snapshot: IndexedSnapshot, posts: CombinedPost[]) {
@@ -215,8 +243,10 @@ export function renderComment(post: Comment): string {
     return `
     <tr class="comment-meta">
         <td colspan=1></td>
-        <td class="meta" style="padding-left: ${post.level * padding}">
+        <td class="meta" style="padding-left: ${post.level * padding}px">
             <a class="user">${post.user}</a>
+            |
+            <a>reply</a>
         </td>
     </tr>
     <tr>
@@ -227,7 +257,7 @@ export function renderComment(post: Comment): string {
 }
 
 export function renderCommentText(post: Comment): string {
-    return `<span class="comment" style="padding-left: ${post.level * padding}">${post.text}</span>`
+    return `<span class="comment" style="padding-left: ${post.level * padding}px">${post.text}</span>`
 }
 
 export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comment[], votes: number): string {
@@ -261,6 +291,59 @@ export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comm
                     ${
                         comments.map((comment) => renderComment(comment)).join('')
                     }
+                    ${footerHtml}
+                </table>
+                </center>
+            </body>
+        </html>
+`
+    return html
+}
+
+export function renderSubmit(snapshot: IndexedSnapshot): string {
+    const html = `
+        <!DOCTYPE html>
+        <html>
+            ${head(snapshot)}
+            <body>
+                <center>
+                <table class="main">
+                    ${headerHtml}
+                    <form method="post" action="comment">
+                        <tr>
+                            <td class="label">title</td>
+                            <td>
+                                <!--<input type="text" name="title" value="" size="50" autofocus="t" oninput="tlen(this)" onfocus="tlen(this)">-->
+                                <input type="text" id="title" name="title" value="" size="50" autofocus="t">
+                                <span style="margin-left:10px"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="label">url</td>
+                            <td><input type="url" id="url" name="url" value="" size="50"></td>
+                        </tr>
+                        <tr>
+                            <td class="label">text</td>
+                            <td><textarea name="text" id="text" rows="4" cols="49"></textarea></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td><input class="button" type="submit" value="submit" onclick="hexnews.submit()"></td>
+                        </tr>
+                        <tr style="height:20px">
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td class="label">Leave url blank to submit a question for discussion. If there
+                                is no url, text will appear at the top of the thread. If
+                                there is a url, text is optional.<br><br>
+                            </td>
+                        </tr>
+                    </form>
                     ${footerHtml}
                 </table>
                 </center>

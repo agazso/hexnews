@@ -1,28 +1,16 @@
 import { Bee } from "@ethersphere/bee-js"
-import { IndexedSnapshot, indexSnapshot, newsPagePosts, Snapshot, updateSnapshot } from "./model"
+import { indexSnapshot, Snapshot, updateSnapshot } from "./model"
 import { makeRootUserSnapshot, makeSwarmStorage } from "./test"
-import { readFileSync, mkdirSync, writeFileSync, copyFileSync } from 'fs'
-import { renderNews, renderPost } from "./render"
+import { writeFileSync, copyFileSync, readFileSync } from 'fs'
 import { spawn } from 'child_process'
 import { SEED } from "./const"
+import { buildSite } from "./build"
 
 declare var TextDecoder: any
 
 const INDEXER_FEED_PRIVATE_KEY = process.env.INDEXER_FEED_PRIVATE_KEY || '0x2db11bcf42c8b5047a750ec3dabf1fb196f34b9bf37b30c0ed98868a8b686073'
 const INDEXER_POSTAGE_STAMP = process.env.INDEXER_POSTAGE_STAMP || '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
-const SNAPSHOT_FILE = 'snapshot.json'
 const BEE_URL = 'http://localhost:1633'
-
-function readSnapshotFromFile(file: string = SNAPSHOT_FILE): Snapshot | undefined {
-    try {
-        const data = readFileSync(file)
-        const json = new TextDecoder().decode(data)
-        const snapshot = JSON.parse(json) as Snapshot
-        return snapshot
-    } catch (e) {
-        return undefined
-    }
-}
 
 function privateKeyToAddress(privateKey: string): string {
     const bee = new Bee(BEE_URL)
@@ -30,31 +18,8 @@ function privateKeyToAddress(privateKey: string): string {
     return '0x' + feedWriter.owner
 }
 
-async function buildSite(indexedSnapshot: IndexedSnapshot, distDir: string) {
-    try { mkdirSync(`${distDir}/posts`, { recursive: true}) } catch (e) {}
-
-    const sortedPosts = newsPagePosts(indexedSnapshot, 30)
-
-    const newsPage = renderNews(indexedSnapshot, sortedPosts)
-    writeFileSync(`${distDir}/index.html`, newsPage)
-
-    for (const post of sortedPosts) {
-        const postPage = renderPost(indexedSnapshot, post, post.comments, post.votes)
-        writeFileSync(`${distDir}/posts/${post.id}.html`, postPage)
-    }
-
-    return distDir
-}
-
-async function spawnSwarmCLIUploader(buildDir: string) {
-    const child = spawn('swarm-cli', [
-        'feed',
-        'upload',
-        buildDir,
-        '--stamp', INDEXER_POSTAGE_STAMP,
-        '--identity', 'hexnews-beta',
-    ])
-
+async function spawnCommand(command: string, args: string[]) {
+    const child = spawn(command, args)
     let data = '+ '
     for await (const chunk of child.stdout) {
         data += (chunk + '').split('\n').join('\n+ ')
@@ -73,6 +38,40 @@ async function spawnSwarmCLIUploader(buildDir: string) {
     }
 
     return data
+}
+
+async function spawnSwarmCLIUploader(buildDir: string) {
+    const uploadArgs = [
+        'upload',
+        buildDir,
+    ]
+
+    const output = await spawnCommand('swarm-cli', [
+        'feed',
+        ...uploadArgs,
+        '--stamp', INDEXER_POSTAGE_STAMP,
+        '--identity', 'hexnews-beta',
+    ])
+
+    const gwOutput = await spawnCommand('swarm-cli', [
+        ...uploadArgs,
+        '--bee-api-url', 'https://api.gateway.ethswarm.org'
+    ])
+
+    return output + gwOutput
+}
+
+export const SNAPSHOT_FILE = 'snapshot.json'
+
+export function readSnapshotFromFile(file: string = SNAPSHOT_FILE): Snapshot | undefined {
+    try {
+        const data = readFileSync(file)
+        const json = new TextDecoder().decode(data)
+        const snapshot = JSON.parse(json) as Snapshot
+        return snapshot
+    } catch (e) {
+        return undefined
+    }
 }
 
 async function main() {
@@ -96,7 +95,7 @@ async function main() {
 
     const bundle = 'hexnews.js'
     console.log(`copying bundle...`)
-    copyFileSync(`dist/${bundle}`, `${buildDir}/bundle`)
+    copyFileSync(`dist/${bundle}`, `${buildDir}/${bundle}`)
 
     console.log(`upload to swarm...`)
     const output = await spawnSwarmCLIUploader(buildDir)

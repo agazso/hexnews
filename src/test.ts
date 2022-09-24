@@ -87,15 +87,18 @@ function address(nick: string): string {
     return users[index].address
 }
 
-export async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link?: string): Promise<Post> {
-    const updates = await findUpdates(storage, identity)
+export async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link: string, nextIndex?: number): Promise<Post> {
     const post: PostUpdate = {
         type: 'post',
         title,
         text: '',
         link,
     }
-    await storage.addUpdate(identity, updates.length, post)
+    if (!nextIndex) {
+        const updates = await findUpdates(storage, identity)
+        nextIndex = updates.length
+    }
+    await storage.addUpdate(identity, nextIndex, post)
     return {
         ...post,
         id: makePostId(post),
@@ -103,15 +106,18 @@ export async function addPost(storage: StorageBackend, identity: PrivateIdentity
     }
 }
 
-async function addComment(storage: StorageBackend, identity: PrivateIdentity, text: string, parent: string): Promise<Post> {
-    const updates = await findUpdates(storage, identity)
+export async function addComment(storage: StorageBackend, identity: PrivateIdentity, text: string, parent?: string, nextIndex?: number): Promise<Post> {
     const post: PostUpdate = {
         type: 'post',
         title: '',
         text,
         parent,
     }
-    await storage.addUpdate(identity, updates.length, post)
+    if (!nextIndex) {
+        const updates = await findUpdates(storage, identity)
+        nextIndex = updates.length
+    }
+    await storage.addUpdate(identity, nextIndex, post)
     return {
         ...post,
         id: makePostId(post),
@@ -119,23 +125,28 @@ async function addComment(storage: StorageBackend, identity: PrivateIdentity, te
     }
 }
 
-async function addInvite(storage: StorageBackend, identity: PrivateIdentity, otherIdentity: PublicIdentity){
-    const updates = await findUpdates(storage, identity)
+async function addInvite(storage: StorageBackend, identity: PrivateIdentity, otherIdentity: PublicIdentity, nextIndex?: number){
     const invite: InviteUpdate = {
         type: 'invite',
         user: otherIdentity.address,
     }
-    await storage.addUpdate(identity, updates.length, invite)
+    if (!nextIndex) {
+        const updates = await findUpdates(storage, identity)
+        nextIndex = updates.length
+    }
+    await storage.addUpdate(identity, nextIndex, invite)
 }
 
-async function addVote(storage: StorageBackend, identity: PrivateIdentity, post: string) {
-    const updates = await findUpdates(storage, identity)
+async function addVote(storage: StorageBackend, identity: PrivateIdentity, post: string, nextIndex?: number) {
     const invite: VoteUpdate = {
         type: 'vote',
         post,
     }
-    await storage.addUpdate(identity, updates.length, invite)
-
+    if (!nextIndex) {
+        const updates = await findUpdates(storage, identity)
+        nextIndex = updates.length
+    }
+    await storage.addUpdate(identity, nextIndex, invite)
 }
 
 export const makeRootUserSnapshot = (address: string): Snapshot => ({

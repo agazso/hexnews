@@ -10,7 +10,6 @@ Then open `dist/index.html`
 ### Bundle structure
 ```
 dist/
-├─ posts/
 ├─ index.html
 ├─ hexnews.js
 ├─ hexnews.js.min
