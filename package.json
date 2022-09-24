@@ -5,9 +5,9 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "indexer": "npx ts-node indexer",
+    "indexer": "npx ts-node src/indexer",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ts-node cmd build && npx esbuild app.ts --bundle --outfile=dist/hexnews.js --global-name=hexnews"
+    "build": "ts-node src/cmd build && npx esbuild src/app.ts --bundle --outfile=dist/hexnews.js --global-name=hexnews"
   },
   "keywords": [],
   "author": "",

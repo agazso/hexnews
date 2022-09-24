@@ -1,10 +1,6 @@
-import { Snapshot, emptySnapshot, makeMemoryStorage, updateSnapshot, PostUpdate, PublicIdentity, StorageBackend, Post, PrivateIdentity, findUpdates, InviteUpdate, makePostId, VoteUpdate, makeTopic, Update } from "./model"
-import { renderNews, renderPost } from "./render"
-import { randomBytes } from 'crypto'
-import { Bee, Utils } from "@ethersphere/bee-js"
-
-declare var TextDecoder: any
-declare var TextEncoder: any
+import { PostUpdate, PublicIdentity, Post, PrivateIdentity, InviteUpdate, VoteUpdate } from "./model"
+import { Snapshot, emptySnapshot, updateSnapshot } from "./snapshot"
+import { StorageBackend, findUpdates, makePostId, makeMemoryStorage } from "./storage"
 
 export const users = [
     {
@@ -66,9 +62,7 @@ export const users = [
         privateKey: '0x70624c5c79d8dc8712ceb1c88561bce8b5df1c4b827b829f0e61310386d3500b',
         address: '0xb337e4f337a18d3280e2dcef34f1c414a68cb7a0',
         nick: 'fverse',
-    }
-
-
+    },
 ]
 
 function identity(nick: string): PrivateIdentity {
@@ -158,37 +152,6 @@ export const makeRootUserSnapshot = (address: string): Snapshot => ({
     }],
 })
 
-export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000'): StorageBackend => {
-    const bee = new Bee(url)
-    const postageBatchId = '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
-    return {
-        findUpdate: async (identity: PublicIdentity, index: number): Promise<Update | undefined> => {
-            const topic = makeTopic(`${seed}/${identity.address}`, index)
-            console.debug({ topic })
-            const identifier = Utils.keccak256Hash(topic)
-            const socReader = bee.makeSOCReader(identity.address)
-            try {
-                const soc = await socReader.download(identifier)
-                const data = soc.payload()
-                const text = new TextDecoder().decode(data)
-                const update = JSON.parse(text) as Update
-                return update
-            } catch (e) {
-                return undefined
-            }
-        },
-        addUpdate: async (identity, index, update) => {
-            const topic = makeTopic(`${seed}/${identity.address}`, index)
-            console.debug({ identity, index, update, topic })
-            const identifier = Utils.keccak256Hash(topic)
-            const socWriter = bee.makeSOCWriter(identity.privateKey)
-            const updateJSON = JSON.stringify(update)
-            const data = new TextEncoder().encode(updateJSON)
-            await socWriter.upload(postageBatchId, identifier, data)
-        },
-    }
-}
-
 export async function generateTestSnapshot(storage: StorageBackend = makeMemoryStorage()) {
     const firstPost = await addPost(storage, users[0], `Hex News launched! 🔥💥📣`, 'https://hexnews.bzz.link')
     const secondPost = await addPost(storage, users[0], `Swarm.City Boardwalk Implementation in Typescript`, 'https://github.com/swarmcity/boardwalk-ts/issues')
@@ -246,5 +209,3 @@ export async function generateTestSnapshot(storage: StorageBackend = makeMemoryS
 
     return snapshot
 }
-
-// test().catch(console.error)

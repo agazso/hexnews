@@ -1,4 +1,5 @@
-import { IndexedSnapshot, Post, Comment, CombinedPost  } from "./model"
+import { Post, Comment, CombinedPost  } from "./model"
+import { IndexedSnapshot } from "./snapshot"
 
 const title = 'Hex News'
 const url = '/'
@@ -191,7 +192,7 @@ const headerHtml = `
     <tr class="header">
         <td class="logo"></td>
         <td class="title">
-            <a class="title" href="/" onclick="hexnews.router(event)">${title} ß</a>
+            <a class="title" href="${url}" onclick="hexnews.router(event)">${title} ß</a>
             ${hspace(30)}
             <a class="menu" href="/#/submit" onclick="hexnews.router(event)">submit</a>
         </td>
@@ -200,7 +201,7 @@ const headerHtml = `
         </td>
     </tr>
 `
-const link = (title: string, url: string) => `<a href="${url}">${title}</a>`
+const link = (title: string, url: string) => `<a href="${url}" onclick="hexnews.router(event)">${title}</a>`
 
 const footerHtml = `
     <tr><td colspan=3 class="separator"><hr/></tr>

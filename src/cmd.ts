@@ -1,7 +1,8 @@
 import { buildSite } from './build'
 import { SEED } from './const'
-import { indexSnapshot } from './model'
-import { addPost, generateTestSnapshot, makeSwarmStorage, users } from './test'
+import { indexSnapshot } from './snapshot'
+import { makeSwarmStorage } from './storage'
+import { addPost, generateTestSnapshot, users } from './test'
 
 
 async function gendata(...args: string[]) {

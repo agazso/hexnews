@@ -1,10 +1,11 @@
 import { Bee } from "@ethersphere/bee-js"
-import { indexSnapshot, Snapshot, updateSnapshot } from "./model"
-import { makeRootUserSnapshot, makeSwarmStorage } from "./test"
+import { makeRootUserSnapshot } from "./test"
 import { writeFileSync, copyFileSync, readFileSync } from 'fs'
 import { spawn } from 'child_process'
 import { SEED } from "./const"
 import { buildSite } from "./build"
+import { indexSnapshot, Snapshot, updateSnapshot } from "./snapshot"
+import { makeSwarmStorage } from "./storage"
 
 declare var TextDecoder: any
 

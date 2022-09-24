@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync } from 'fs'
-import { IndexedSnapshot, newsPagePosts } from './model'
-import { renderNews, renderPost } from './render'
+import { renderNews } from './render'
+import { IndexedSnapshot, newsPagePosts } from './snapshot'
 
 export async function buildSite(indexedSnapshot: IndexedSnapshot, distDir: string = 'dist') {
     try { mkdirSync(`${distDir}/posts`, { recursive: true}) } catch (e) {}

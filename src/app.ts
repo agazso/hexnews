@@ -1,7 +1,8 @@
-import { SEED } from "./const";
-import { getPostById, indexSnapshot, newsPagePosts, IndexedSnapshot, getNextIndex } from "./model";
-import { renderNews, renderPost, renderSubmit } from "./render";
-import { makeSwarmStorage, addPost, users, addComment } from "./test";
+import { SEED } from './const'
+import { renderNews, renderPost, renderSubmit } from './render'
+import { IndexedSnapshot, indexSnapshot, newsPagePosts, getNextIndex, getPostById } from './snapshot'
+import { makeSwarmStorage } from './storage'
+import { addPost, users, addComment } from './test'
 
 declare var snapshot: IndexedSnapshot
 
