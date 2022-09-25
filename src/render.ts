@@ -192,7 +192,7 @@ const headerHtml = `
     <tr class="header">
         <td class="logo"></td>
         <td class="title">
-            <a class="title" href="${url}" onclick="hexnews.router(event)">${title} ß</a>
+            <a class="title" href="${url}" onclick="hexnews.router(event)">${title} ßeta</a>
             ${hspace(30)}
             <a class="menu" href="/#/submit" onclick="hexnews.router(event)">submit</a>
         </td>

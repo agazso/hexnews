@@ -1,4 +1,5 @@
-import { CombinedPost, isInvite, isPost, isVote, Post, Comment, User, Vote } from './model'
+import { makeAsyncQueue } from './async-queue'
+import { CombinedPost, isInvite, isPost, isVote, Post, Comment, User, Vote, Update } from './model'
 import { StorageBackend, findUpdates, makePostId } from './storage'
 
 export interface Snapshot {
@@ -19,49 +20,97 @@ export const emptySnapshot: Snapshot = {
     votes: [],
 }
 
-function makeAsyncQueue(concurrency = 1) {
-    const queue: (() => void)[] = []
-    const listeners: any[] = []
-    let running = 0
-    async function runOneTask() {
-        if (queue.length > 0 && running < concurrency) {
-            running++
-            const task = queue.shift()
-            try {
-                task && (await task())
-            } finally {
-                if (--running === 0) {
-                    while (listeners.length > 0) {
-                        listeners.shift()()
-                    }
-                }
-                runOneTask()
-            }
-        }
+interface UpdateResult {
+    userIndex: number
+    user: Readonly<User>
+    updates: ReadonlyArray<Update>
+}
+
+function isUpdateResult(result: UpdateResult | undefined): result is UpdateResult {
+    if (result) {
+        return true
     }
-    async function drain() {
-        if (!running) {
-            return Promise.resolve()
-        }
-        return new Promise(resolve => {
-            listeners.push(resolve)
+    return false
+}
+
+async function fetchUpdateResults(storage: StorageBackend, users: User[]): Promise<UpdateResult[]> {
+    const concurrency = 1
+    const asyncQueue = makeAsyncQueue(concurrency)
+
+    const results: (UpdateResult | undefined)[] = new Array(users.length)
+    for (let i = 0; i < users.length; i++) {
+        const user = users[i]
+        asyncQueue.enqueue(async () => {
+            const updates = await findUpdates(storage, user, user.lastIndex)
+            if (updates.length > 0) {
+                results[i]! = {
+                    updates,
+                    user,
+                    userIndex: i,
+                }
+            }
         })
     }
+
+    await asyncQueue.drain()
+
+    console.debug({ results })
+
+    return results.filter(isUpdateResult)
+}
+
+export async function updateSnapshotConcurrent(storage: StorageBackend, snapshot: Readonly<Snapshot> = emptySnapshot): Promise<Snapshot> {
+    const output: Snapshot = emptySnapshot
+
+    const results = await fetchUpdateResults(storage, snapshot.users)
+    const sortedResults = results.sort((resA, resB) => resA.userIndex - resB.userIndex)
+
+    const updatedUsers = [...snapshot.users]
+    const newUsers: User[] = []
+    for (const result of sortedResults) {
+        const user = result.user
+        const updates = result.updates
+
+        console.debug({ updates })
+
+        const lastIndex = user.lastIndex + updates.length
+        updatedUsers[result.userIndex] = {
+            ...snapshot.users[result.userIndex],
+            lastIndex,
+        }
+
+        const posts = updates.filter(isPost).map(update => ({ ...update, id: makePostId(update), user: user.address }))
+        output.posts.push(...posts)
+
+        const invitedUsers = updates.filter(isInvite).map(invite => ({ address: invite.user, lastIndex: 0, invitedBy: user.address }))
+        for (const invitedUser of invitedUsers) {
+            if (!updatedUsers.includes(invitedUser)) {
+                newUsers.push(invitedUser)
+            }
+        }
+
+        const votes = updates.filter(isVote).map(update => ({ ...update, user: user.address }))
+        output.votes.push(...votes)
+    }
+
+    const invitedSnapshot = await updateSnapshotSerial(storage, { ...emptySnapshot, users: newUsers})
+
     return {
-        enqueue(fn: any) {
-            queue.push(fn)
-            runOneTask()
-        },
-        drain
+        users: [...updatedUsers, ...invitedSnapshot.users],
+        posts: [...snapshot.posts, ...output.posts, ...invitedSnapshot.posts],
+        votes: [...snapshot.votes, ...output.votes, ...invitedSnapshot.votes],
     }
 }
 
-export async function updateSnapshot(storage: StorageBackend, snapshot: Snapshot = emptySnapshot): Promise<Snapshot> {
+export const updateSnapshot = updateSnapshotSerial
+
+export async function updateSnapshotSerial(storage: StorageBackend, snapshot: Snapshot = emptySnapshot): Promise<Snapshot> {
     const output: Snapshot = {
         ...snapshot
     }
 
-    for (const user of output.users) {
+    for (let i = 0; i < output.users.length; i++) {
+        const user = output.users[i]
         const updates = await findUpdates(storage, user, user.lastIndex)
 
         user.lastIndex += updates.length
@@ -82,6 +131,7 @@ export async function updateSnapshot(storage: StorageBackend, snapshot: Snapshot
 
     return output
 }
+
 
 export function indexSnapshot(snapshot: Readonly<Snapshot> = emptySnapshot): IndexedSnapshot {
     const output: IndexedSnapshot = {

@@ -20,8 +20,9 @@ function privateKeyToAddress(privateKey: string): string {
 }
 
 async function spawnCommand(command: string, args: string[]) {
+    let data = `command: "${command} ${args.join(' ')}"` + '\n'
     const child = spawn(command, args)
-    let data = '+ '
+    data += '+ '
     for await (const chunk of child.stdout) {
         data += (chunk + '').split('\n').join('\n+ ')
     }

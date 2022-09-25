@@ -1,7 +1,7 @@
 import { buildSite } from './build'
 import { SEED } from './const'
-import { indexSnapshot } from './snapshot'
-import { makeSwarmStorage } from './storage'
+import { indexSnapshot, updateSnapshotSerial, updateSnapshotConcurrent } from './snapshot'
+import { makeMemoryStorage, makeSwarmStorage } from './storage'
 import { addPost, generateTestSnapshot, users } from './test'
 
 
@@ -24,7 +24,24 @@ async function post(...args: string[]) {
 async function build(...args: string[]) {
     const snapshot = await generateTestSnapshot()
     const indexedSnapshot = indexSnapshot(snapshot)
+    console.debug({ snapshot: JSON.stringify(snapshot), indexedSnapshot })
     buildSite(indexedSnapshot)
+}
+
+function assertEquals(a: any, b: any) {
+    const aJson = JSON.stringify(a, undefined, 2)
+    const bJson = JSON.stringify(b, undefined, 2)
+    if (aJson !== bJson) {
+        console.error(`a !== b`, { a, b })
+    }
+}
+
+async function test() {
+    const serialSnapshot = await generateTestSnapshot(makeMemoryStorage(), updateSnapshotSerial)
+
+    const parallelSnapshot = await generateTestSnapshot(makeMemoryStorage(), updateSnapshotConcurrent)
+
+    assertEquals(serialSnapshot, parallelSnapshot)
 }
 
 async function main() {
@@ -33,6 +50,7 @@ async function main() {
         'build': build,
         'gendata': gendata,
         'post': post,
+        'test': test,
     }
     await commands[cmd](...rest)
 }

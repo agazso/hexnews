@@ -1,5 +1,5 @@
 import { PostUpdate, PublicIdentity, Post, PrivateIdentity, InviteUpdate, VoteUpdate } from "./model"
-import { Snapshot, emptySnapshot, updateSnapshot } from "./snapshot"
+import { Snapshot, emptySnapshot, updateSnapshotSerial, updateSnapshotConcurrent } from "./snapshot"
 import { StorageBackend, findUpdates, makePostId, makeMemoryStorage } from "./storage"
 
 export const users = [
@@ -152,7 +152,7 @@ export const makeRootUserSnapshot = (address: string): Snapshot => ({
     }],
 })
 
-export async function generateTestSnapshot(storage: StorageBackend = makeMemoryStorage()) {
+export async function generateTestSnapshot(storage: StorageBackend = makeMemoryStorage(), updateSnapshot = updateSnapshotSerial) {
     const firstPost = await addPost(storage, users[0], `Hex News launched! 🔥💥📣`, 'https://hexnews.bzz.link')
     const secondPost = await addPost(storage, users[0], `Swarm.City Boardwalk Implementation in Typescript`, 'https://github.com/swarmcity/boardwalk-ts/issues')
     await addInvite(storage, users[0], users[1])
@@ -191,6 +191,8 @@ export async function generateTestSnapshot(storage: StorageBackend = makeMemoryS
     await addInvite(storage, users[6], users[7])
     await addPost(storage, users[7], `The new Gnosis Chain Documentation site is L I V E  🎉`, 'https://docs.gnosischain.com/')
 
+    snapshot = await updateSnapshot(storage, snapshot)
+
     await addInvite(storage, users[5], users[8])
     await addPost(storage, users[8], `A Virtual FIDO2 USB Device`, 'https://github.com/bulwarkid/virtual-fido')
 
@@ -204,6 +206,8 @@ export async function generateTestSnapshot(storage: StorageBackend = makeMemoryS
     await addPost(storage, users[11], `Fileverse: File sharing between blockchain addresses`, 'https://fileverse.io/')
 
     await addComment(storage, users[0], `Thanks!`, coolPost.id)
+
+    snapshot = await updateSnapshot(storage, snapshot)
 
     snapshot = await updateSnapshot(storage, snapshot)
 

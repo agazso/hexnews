@@ -3,7 +3,7 @@ import { renderNews } from './render'
 import { IndexedSnapshot, newsPagePosts } from './snapshot'
 
 export async function buildSite(indexedSnapshot: IndexedSnapshot, distDir: string = 'dist') {
-    try { mkdirSync(`${distDir}/posts`, { recursive: true}) } catch (e) {}
+    try { mkdirSync(`${distDir}`, { recursive: true}) } catch (e) {}
 
     const sortedPosts = newsPagePosts(indexedSnapshot, 30)
 
