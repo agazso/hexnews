@@ -1,5 +1,8 @@
 import { Post, Comment, CombinedPost  } from "./model"
-import { IndexedSnapshot } from "./snapshot"
+import { IndexedSnapshot, isAddressInvited } from "./snapshot"
+
+declare var localStorage: any
+declare var hexnews: any
 
 const title = 'Hex News'
 const url = '/'
@@ -43,7 +46,7 @@ export function renderPostMeta(post: Post, comments: Post[], votes: number): str
             by
             <a class="user">${post.user}</a>
             |
-            <a href="/#/posts/${post.id}" onclick="hexnews.router(event)">${comments.length} ${pluralize('comment', comments.length)}</a>
+            <a href="/#/posts/${post.id}">${comments.length} ${pluralize('comment', comments.length)}</a>
         </td>
     </tr>
 `
@@ -83,7 +86,8 @@ textarea {
 
 .main {
     width: 80%;
-    background-color: aliceblue
+    background-color: aliceblue;
+    padding: ${padding}px;
 }
 
 table {
@@ -173,6 +177,14 @@ input, textarea {
 .label {
     color: gray;
 }
+
+.right {
+    padding-right: ${padding}px;
+}
+.spacer {
+    width: ${padding}px;
+    height: ${padding}px;
+}
 `
 
 const head = (indexedSnapshot: IndexedSnapshot) => `
@@ -188,31 +200,35 @@ const head = (indexedSnapshot: IndexedSnapshot) => `
 
 const hspace = (padding: number) => `<span style="padding-left: ${padding}px"></span>`
 
-const headerHtml = `
+const headerHtml = () => `
     <tr class="header">
         <td class="logo"></td>
         <td class="title">
-            <a class="title" href="${url}" onclick="hexnews.router(event)">${title} ßeta</a>
+            <a class="title" href="/#/">${title} ßeta</a>
             ${hspace(30)}
-            <a class="menu" href="/#/submit" onclick="hexnews.router(event)">submit</a>
+            <a class="menu" href="/#/submit">submit</a>
         </td>
         <td class="right">
-            <a class="menu" href="/#/login" onclick="hexnews.router(event)">login</a>
+            ${
+                typeof localStorage === 'object' && localStorage.getItem('currentAccount')
+                ? `<a class="menu" href="/#/connect">${localStorage.getItem('currentAccount')}</a>`
+                : `<a class="menu" href="/#/connect">connect</a>`
+            }
         </td>
     </tr>
 `
-const link = (title: string, url: string) => `<a href="${url}" onclick="hexnews.router(event)">${title}</a>`
+const link = (title: string, url: string) => `<a href="${url}">${title}</a>`
 
 const footerHtml = `
     <tr><td colspan=3 class="separator"><hr/></tr>
     <tr>
         <td colspan=3 class="footer">
             <span class="meta">
-                ${link('Guidelines', '/guidelines')} |
-                ${link('Contact', '/contact')} |
-                ${link('Github', 'https://github.com/hexnews.eth')} |
+                ${link('Guidelines', '/#/guidelines')} |
+                ${link('Contact', '/#/contact')} |
+                ${link('Github', 'https://github.com/agazso/hexnews')} |
                 ${link('Hosted on Swarm', 'https://swarm.bzz.link')} |
-                ${link('Status ✅', '/status')}
+                ${link('Status ✅', '/#/status')}
             </span>
         </td>
     </tr>
@@ -227,7 +243,7 @@ export function renderNews(snapshot: IndexedSnapshot, posts: CombinedPost[]) {
             <body>
                 <center>
                 <table class="main">
-                    ${headerHtml}
+                    ${headerHtml()}
                     ${
                         posts.map((post, index) => renderPostTitle(post, index) + renderPostMeta(post, post.comments, post.votes)).join('')
                     }
@@ -269,7 +285,7 @@ export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comm
             <body>
                 <center>
                 <table class="main">
-                    ${headerHtml}
+                    ${headerHtml()}
                     <tr class="post">
                         <td colspan=1>&nbsp;</td>
                         <td class="post-title">${postTitle(post)}${postSite(post)}</td>
@@ -278,14 +294,10 @@ export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comm
                     <tr>
                         <td colspan=1>&nbsp;</td>
                         <td>
-                            <form method="post" action="comment">
-                                <input type="hidden" name="parent" value="32878560">
-                                <input type="hidden" name="goto" value="item?id=32878560">
-                                <input type="hidden" name="hmac" value="f0d33ef76de95b9498db5ef53941a5b0f11ac0ca">
-                                <textarea name="text" rows="8" cols="80"></textarea>
-                                <br><br>
-                                <input class="button" type="submit" value="add comment">
-                            </form>
+                            <input type="hidden" id="parent" name="parent" value="${post.id}">
+                            <textarea name="text" id="text" rows="8" cols="80"></textarea>
+                            <br><br>
+                            <input class="button" type="button" value="add comment" onclick="hexnews.comment()">
                         </td>
                     </tr>
                     <tr><td colspan=3 class="separator"></tr>
@@ -309,7 +321,7 @@ export function renderSubmit(snapshot: IndexedSnapshot): string {
             <body>
                 <center>
                 <table class="main">
-                    ${headerHtml}
+                    ${headerHtml()}
                     <form method="post" action="comment">
                         <tr>
                             <td class="label">title</td>
@@ -345,6 +357,60 @@ export function renderSubmit(snapshot: IndexedSnapshot): string {
                             </td>
                         </tr>
                     </form>
+                    ${footerHtml}
+                </table>
+                </center>
+            </body>
+        </html>
+`
+    return html
+}
+
+export function renderConnect(snapshot: IndexedSnapshot): string {
+    const html = `
+        <!DOCTYPE html>
+        <html>
+            ${head(snapshot)}
+            <body>
+                <center>
+                <table class="main">
+                    ${headerHtml()}
+                    <tr>
+                        <td class="spacer"></td>
+                    </tr>
+                    <tr>
+                        <td colspan=1></td>
+                        <td class="label">
+                            ${ hexnews.signer
+                                ? `Connected to metamask, account: ${typeof localStorage === 'object' && localStorage.getItem('currentAccount')}`
+                                : `Press the connect button to connect with metamask`
+                            }
+                            <br><br>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                    ${ !hexnews.signer
+                        ? `<tr>
+                            <td></td>
+                            <td><input class="button" type="submit" value="connect" onclick="hexnews.connect()"></td>
+                        </tr>`
+                        : ''
+                    }
+                    <tr style="height:20px">
+                    </tr>
+                    <tr>
+                        <td></td>
+                        <td class="label">
+                            ${typeof localStorage === 'object' && localStorage.getItem('currentAccount') && isAddressInvited(snapshot, localStorage.getItem('currentAccount'))
+                                ? `Invited`
+                                : `Not invited. Ask someone you know to invite you!`
+                            }
+                            <br><br>
+                        </td>
+                    </tr>
                     ${footerHtml}
                 </table>
                 </center>

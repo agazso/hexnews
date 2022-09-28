@@ -239,3 +239,8 @@ export function getNextIndex(snapshot: IndexedSnapshot, address: string): number
     const user = snapshot.users[userIndex]
     return user.lastIndex // TODO rename to nextIndex
 }
+
+export function isAddressInvited(snapshot: IndexedSnapshot, address: string): boolean {
+    const userIndex = snapshot.userIndex[address]
+    return !!userIndex
+}

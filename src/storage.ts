@@ -1,4 +1,4 @@
-import { Bee, Utils } from "@ethersphere/bee-js"
+import { Bee, Signer, Utils } from "@ethersphere/bee-js"
 import { PublicIdentity, Update, PrivateIdentity, PostUpdate } from "./model"
 
 declare var TextDecoder: any
@@ -6,7 +6,7 @@ declare var TextEncoder: any
 
 export interface StorageBackend {
     findUpdate: (identity: PublicIdentity, index: number) => Promise<Update | undefined>
-    addUpdate: (identity: PrivateIdentity, index: number, update: Update) => Promise<void>
+    addUpdate: (identity: PublicIdentity, index: number, update: Update) => Promise<void>
 }
 
 export const makeTopic = (address: string, index: number) => `${address}/updates/${index}`
@@ -20,15 +20,15 @@ export const makeMemoryStorage = (): StorageBackend => {
             const topic = makeTopic(identity.address, index)
             return memory[topic]
         },
-        addUpdate: async (identity: PrivateIdentity, index: number, update: Update): Promise<void> => {
+        addUpdate: async (identity: PublicIdentity, index: number, update: Update): Promise<void> => {
             const topic = makeTopic(identity.address, index)
             memory[topic] = update
         }
     }
 }
 
-export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000'): StorageBackend => {
-    const bee = new Bee(url)
+export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000', signer?: Signer): StorageBackend => {
+    const bee = new Bee(url, { signer })
     const postageBatchId = '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
     return {
         findUpdate: async (identity: PublicIdentity, index: number): Promise<Update | undefined> => {
@@ -50,10 +50,12 @@ export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: st
             const topic = makeTopic(`${seed}/${identity.address}`, index)
             console.debug({ identity, index, update, topic })
             const identifier = Utils.keccak256Hash(topic)
-            const socWriter = bee.makeSOCWriter(identity.privateKey)
+            // const socWriter = bee.makeSOCWriter(identity.privateKey)
+            const socWriter = bee.makeSOCWriter(signer)
             const updateJSON = JSON.stringify(update)
             const data = new TextEncoder().encode(updateJSON)
-            await socWriter.upload(postageBatchId, identifier, data)
+            const ref = await socWriter.upload(postageBatchId, identifier, data)
+            console.debug({ ref })
         },
     }
 }

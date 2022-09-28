@@ -1,10 +1,14 @@
 import { SEED } from './const'
-import { renderNews, renderPost, renderSubmit } from './render'
+import { renderConnect, renderNews, renderPost, renderSubmit } from './render'
 import { IndexedSnapshot, indexSnapshot, newsPagePosts, getNextIndex, getPostById } from './snapshot'
 import { makeSwarmStorage } from './storage'
-import { addPost, users, addComment } from './test'
+import { addPost, addComment } from './test'
+import { Signer, Utils } from '@ethersphere/bee-js'
 
 declare var snapshot: IndexedSnapshot
+declare var ethereum: any
+export let currentAccount
+export let signer: Signer | undefined
 
 const beeUrl = 'http://localhost:1633'
 
@@ -12,6 +16,7 @@ const routes = {
     '/': rerender,
     '/posts/': rerenderPost,
     '/submit': rerenderSubmit,
+    '/connect': rerenderConnect,
 }
 
 function matchRoute() {
@@ -26,9 +31,9 @@ function matchRoute() {
 }
 
 export function router(event) {
-    event.preventDefault()
-    history.pushState({}, '', event.target.href)
-    matchRoute()
+    // event.preventDefault()
+    // history.pushState({}, '', event.target.href)
+    // matchRoute()
 }
 
 function replaceHTML(html: string) {
@@ -49,24 +54,54 @@ function rerenderSubmit() {
 }
 
 async function postText(text) {
-    const storage = makeSwarmStorage(beeUrl, SEED)
-    const user = users[0]
-    const nextIndex = getNextIndex(snapshot, user.address)
+    if (!signer) {
+        return
+    }
+    const storage = makeSwarmStorage(beeUrl, SEED, signer)
+    // const user = users[0]
+    const address = '0x' + Utils.bytesToHex(signer.address)
+    const nextIndex = getNextIndex(snapshot, address)
     const parent = undefined
-    await addComment(storage, user, text, parent, nextIndex)
+    const identity = {
+        address
+    }
+    await addComment(storage, identity, text, parent, nextIndex)
 }
 
 async function postUrl(title, url) {
-    const storage = makeSwarmStorage(beeUrl, SEED)
-    const user = users[0]
-    const nextIndex = getNextIndex(snapshot, user.address)
-    await addPost(storage, user, title, url, nextIndex)
+    if (!signer) {
+        return
+    }
+    const storage = makeSwarmStorage(beeUrl, SEED, signer)
+    // const user = users[0]
+    const address = '0x' + Utils.bytesToHex(signer.address)
+    const nextIndex = getNextIndex(snapshot, address)
+    const identity = {
+        address
+    }
+    await addPost(storage, identity, title, url, nextIndex)
+}
+
+export async function comment() {
+    if (!signer) {
+        return
+    }
+    const text = (document.getElementById('text') as HTMLInputElement).value
+    const parentId = (document.getElementById('parent') as HTMLInputElement).value
+    const storage = makeSwarmStorage(beeUrl, SEED, signer)
+    const address = '0x' + Utils.bytesToHex(signer.address)
+    const nextIndex = getNextIndex(snapshot, address)
+    const identity = {
+        address
+    }
+    await addComment(storage, identity, text, parentId, nextIndex)
+    return false
 }
 
 export async function submit() {
-    const title = document.getElementsByName('title')
-    const url = document.getElementsByName('url')
-    const text = document.getElementsByName('text')
+    const title = (document.getElementById('title') as HTMLInputElement).value
+    const url = (document.getElementById('url') as HTMLInputElement).value
+    const text = (document.getElementById('text') as HTMLInputElement).value
     if (text) {
         await postText(text)
     } else {
@@ -91,5 +126,42 @@ export function rerenderPost(id: string) {
     replaceHTML(postPage)
 }
 
+export function rerenderConnect() {
+    const html = renderConnect(snapshot)
+    replaceHTML(html)
+}
+
+export async function connect() {
+    const accounts = await ethereum.request({ method: "eth_requestAccounts" })
+    console.debug({ accounts })
+
+    if (accounts.length > 0) {
+        currentAccount = accounts[0]
+        localStorage.setItem('currentAccount', currentAccount)
+        signer = await Utils.makeEthereumWalletSigner(ethereum)
+        rerenderConnect()
+    }
+}
+
 window.addEventListener('popstate', matchRoute)
 window.addEventListener('DOMContentLoaded', matchRoute)
+window.onhashchange = (e: HashChangeEvent) => {
+    e.preventDefault()
+    matchRoute()
+}
+window.onload = async (e: Event) => {
+    ethereum.on('disconnect', (error: any) => {
+        console.debug(`metamask disconnect`)
+        localStorage.clear()
+        signer = undefined
+    })
+    let accounts = await ethereum.request({ method: "eth_accounts" })
+    if (accounts.length === 0) {
+        accounts = await ethereum.request({ method: "eth_requestAccounts" })
+        if (accounts.length > 0) {
+            currentAccount = accounts[0]
+            localStorage.setItem('currentAccount', currentAccount)
+            signer = await Utils.makeEthereumWalletSigner(ethereum)
+        }
+    }
+}

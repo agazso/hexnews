@@ -81,7 +81,7 @@ function address(nick: string): string {
     return users[index].address
 }
 
-export async function addPost(storage: StorageBackend, identity: PrivateIdentity, title: string, link: string, nextIndex?: number): Promise<Post> {
+export async function addPost(storage: StorageBackend, identity: PublicIdentity, title: string, link: string, nextIndex?: number): Promise<Post> {
     const post: PostUpdate = {
         type: 'post',
         title,
@@ -100,7 +100,7 @@ export async function addPost(storage: StorageBackend, identity: PrivateIdentity
     }
 }
 
-export async function addComment(storage: StorageBackend, identity: PrivateIdentity, text: string, parent?: string, nextIndex?: number): Promise<Post> {
+export async function addComment(storage: StorageBackend, identity: PublicIdentity, text: string, parent?: string, nextIndex?: number): Promise<Post> {
     const post: PostUpdate = {
         type: 'post',
         title: '',
