@@ -2,16 +2,23 @@ import { buildSite } from './build'
 import { SEED } from './const'
 import { indexSnapshot, updateSnapshotSerial, updateSnapshotConcurrent } from './snapshot'
 import { makeMemoryStorage, makeSwarmStorage } from './storage'
-import { addPost, generateTestSnapshot, users } from './test'
+import { addPost, addInvite, generateTestSnapshot, users } from './test'
 
+const beeUrl = 'http://localhost:1633'
+
+async function invite(address: string) {
+    const storage = makeSwarmStorage(beeUrl, SEED, users[0].privateKey)
+    const identity = { address }
+    await addInvite(storage, users[0], identity)
+}
 
 async function gendata(...args: string[]) {
-    const storage = makeSwarmStorage('http://localhost:1633', SEED)
+    const storage = makeSwarmStorage(beeUrl, SEED)
     const snapshot = await generateTestSnapshot(storage)
 }
 
 async function post(...args: string[]) {
-    const storage = makeSwarmStorage('http://localhost:1633', SEED)
+    const storage = makeSwarmStorage(beeUrl, SEED)
     const title = args[0]
     const url = args[1]
     if (!title || !url) {
@@ -51,6 +58,7 @@ async function main() {
         'gendata': gendata,
         'post': post,
         'test': test,
+        'invite': invite,
     }
     await commands[cmd](...rest)
 }

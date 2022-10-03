@@ -213,7 +213,7 @@ const numVotes = (indexedSnapshot: IndexedSnapshot, post: Post) =>
     ? indexedSnapshot.postVotes[post.id].size + 1
     : 1
 
-export function getPostById(indexedSnapshot: IndexedSnapshot, id: string): CombinedPost {
+export function getCombinedPostById(indexedSnapshot: IndexedSnapshot, id: string): CombinedPost {
     const postIndex = indexedSnapshot.postIndex[id]
     const post = indexedSnapshot.posts[postIndex]
     const comments = findChildPosts(indexedSnapshot, post)
@@ -231,16 +231,44 @@ export function newsPagePosts(snapshot: IndexedSnapshot, numPosts: number): Comb
 }
 
 export function getNextIndex(snapshot: IndexedSnapshot, address: string): number {
-    const userIndex = snapshot.userIndex[address]
-    if (!userIndex) {
+    const user = getUserByAddress(snapshot, address)
+    if (!user) {
         return 0
     }
 
-    const user = snapshot.users[userIndex]
     return user.lastIndex // TODO rename to nextIndex
 }
 
-export function isAddressInvited(snapshot: IndexedSnapshot, address: string): boolean {
+export function getUserByAddress(snapshot: IndexedSnapshot, address: string): User | undefined {
     const userIndex = snapshot.userIndex[address]
-    return !!userIndex
+    const user = snapshot.users[userIndex]
+    return user
+}
+
+export function getRootPost(snapshot: IndexedSnapshot, postId: string): Post | undefined {
+    while (true) {
+        const post = getPostById(snapshot, postId)
+        if (!post) {
+            return
+        }
+        if (!post.parent) {
+            return post
+        }
+
+        postId = post.parent
+    }
+}
+
+export function getPostById(snapshot: IndexedSnapshot, postId: string): Post | undefined {
+    const postIndex = snapshot.postIndex[postId]
+    const post = snapshot.posts[postIndex]
+    return post
+}
+
+export function getParentPost(snapshot: IndexedSnapshot, postId: string): Post | undefined {
+    const post = getPostById(snapshot, postId)
+    if (!post || !post.parent) {
+        return
+    }
+    return getPostById(snapshot, post.parent)
 }

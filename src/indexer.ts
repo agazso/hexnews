@@ -10,7 +10,7 @@ import { makeSwarmStorage } from "./storage"
 declare var TextDecoder: any
 
 const INDEXER_FEED_PRIVATE_KEY = process.env.INDEXER_FEED_PRIVATE_KEY || '0x2db11bcf42c8b5047a750ec3dabf1fb196f34b9bf37b30c0ed98868a8b686073'
-const INDEXER_POSTAGE_STAMP = process.env.INDEXER_POSTAGE_STAMP || '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
+const INDEXER_POSTAGE_STAMP = process.env.INDEXER_POSTAGE_STAMP || '7bda73c1008964344706d33c54c158b3c7108025d95ba98517c53e81f06095cd'
 const BEE_URL = 'http://localhost:1633'
 
 function privateKeyToAddress(privateKey: string): string {
@@ -88,9 +88,6 @@ async function main() {
     const snapshot = await updateSnapshot(storage, fileSnapshot || rootUserSnapshot)
     const indexedSnapshot = indexSnapshot(snapshot)
 
-    console.log(`writing snapshot file "${SNAPSHOT_FILE}"...`)
-    writeFileSync(SNAPSHOT_FILE, JSON.stringify(snapshot))
-
     const buildDir = 'tmp'
     console.log(`building website at "${buildDir}"...`)
     await buildSite(indexedSnapshot, buildDir)
@@ -102,6 +99,9 @@ async function main() {
     console.log(`upload to swarm...`)
     const output = await spawnSwarmCLIUploader(buildDir)
     console.log(output)
+
+    console.log(`writing snapshot file "${SNAPSHOT_FILE}"...`)
+    writeFileSync(SNAPSHOT_FILE, JSON.stringify(snapshot))
 }
 
 main().catch(console.error)

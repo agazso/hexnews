@@ -1,6 +1,6 @@
 import { SEED } from './const'
-import { renderConnect, renderNews, renderPost, renderSubmit } from './render'
-import { IndexedSnapshot, indexSnapshot, newsPagePosts, getNextIndex, getPostById } from './snapshot'
+import { renderConnect, renderNews, renderPost, renderReply, renderSubmit } from './render'
+import { IndexedSnapshot, indexSnapshot, newsPagePosts, getNextIndex, getCombinedPostById } from './snapshot'
 import { makeSwarmStorage } from './storage'
 import { addPost, addComment } from './test'
 import { Signer, Utils } from '@ethersphere/bee-js'
@@ -73,7 +73,6 @@ async function postUrl(title, url) {
         return
     }
     const storage = makeSwarmStorage(beeUrl, SEED, signer)
-    // const user = users[0]
     const address = '0x' + Utils.bytesToHex(signer.address)
     const nextIndex = getNextIndex(snapshot, address)
     const identity = {
@@ -82,12 +81,11 @@ async function postUrl(title, url) {
     await addPost(storage, identity, title, url, nextIndex)
 }
 
-export async function comment() {
+export async function comment(parentId: string) {
     if (!signer) {
         return
     }
-    const text = (document.getElementById('text') as HTMLInputElement).value
-    const parentId = (document.getElementById('parent') as HTMLInputElement).value
+    const text = (document.getElementById(`text-${parentId}`) as HTMLInputElement).value
     const storage = makeSwarmStorage(beeUrl, SEED, signer)
     const address = '0x' + Utils.bytesToHex(signer.address)
     const nextIndex = getNextIndex(snapshot, address)
@@ -95,6 +93,7 @@ export async function comment() {
         address
     }
     await addComment(storage, identity, text, parentId, nextIndex)
+    closeReply()
     return false
 }
 
@@ -121,7 +120,7 @@ function stripHtmlExtension(id: string) {
 export function rerenderPost(id: string) {
     id = stripHtmlExtension(id)
     const indexedSnapshot = indexSnapshot(snapshot)
-    const post = getPostById(indexedSnapshot, id)
+    const post = getCombinedPostById(indexedSnapshot, id)
     const postPage = renderPost(indexedSnapshot, post, post.comments, post.votes)
     replaceHTML(postPage)
 }
@@ -140,6 +139,21 @@ export async function connect() {
         localStorage.setItem('currentAccount', currentAccount)
         signer = await Utils.makeEthereumWalletSigner(ethereum)
         rerenderConnect()
+    }
+}
+
+let reply: HTMLElement | null
+function closeReply() {
+    if (reply) {
+        reply.innerHTML = ''
+    }
+}
+
+export function openReply(id: string) {
+    closeReply()
+    reply = document.getElementById(`reply-${id}`)
+    if (reply) {
+        reply.innerHTML = renderReply(id)
     }
 }
 

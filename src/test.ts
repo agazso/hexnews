@@ -63,6 +63,12 @@ export const users = [
         address: '0xb337e4f337a18d3280e2dcef34f1c414a68cb7a0',
         nick: 'fverse',
     },
+    {
+        privateKey: '0xfcf70030e78eb8e4ac654ed69d2cd1c36011ea4c06b301adeb2c509e422e19cc',
+        address: '0x39bdff44f7e2e53acfd4fd458270635baa8f2d41',
+        nick: 'hntest',
+    }
+
 ]
 
 function identity(nick: string): PrivateIdentity {
@@ -119,7 +125,7 @@ export async function addComment(storage: StorageBackend, identity: PublicIdenti
     }
 }
 
-async function addInvite(storage: StorageBackend, identity: PrivateIdentity, otherIdentity: PublicIdentity, nextIndex?: number){
+export async function addInvite(storage: StorageBackend, identity: PrivateIdentity, otherIdentity: PublicIdentity, nextIndex?: number){
     const invite: InviteUpdate = {
         type: 'invite',
         user: otherIdentity.address,
@@ -207,7 +213,7 @@ export async function generateTestSnapshot(storage: StorageBackend = makeMemoryS
 
     await addComment(storage, users[0], `Thanks!`, coolPost.id)
 
-    snapshot = await updateSnapshot(storage, snapshot)
+    await addInvite(storage, users[0], users[12])
 
     snapshot = await updateSnapshot(storage, snapshot)
 

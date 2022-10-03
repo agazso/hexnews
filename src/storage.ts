@@ -27,7 +27,7 @@ export const makeMemoryStorage = (): StorageBackend => {
     }
 }
 
-export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000', signer?: Signer): StorageBackend => {
+export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: string = '0000000000000000000000000000000000000000000000000000000000000000', signer?: Signer | string): StorageBackend => {
     const bee = new Bee(url, { signer })
     const postageBatchId = '0f49cad16a8224ba4cd1b3362c6cc1cdccca8cdfa56688344e3c44eb384d976c'
     return {
@@ -46,11 +46,10 @@ export const makeSwarmStorage = (url: string = 'http://localhost:1633', seed: st
                 return undefined
             }
         },
-        addUpdate: async (identity, index, update) => {
+        addUpdate: async (identity: PublicIdentity, index, update) => {
             const topic = makeTopic(`${seed}/${identity.address}`, index)
             console.debug({ identity, index, update, topic })
             const identifier = Utils.keccak256Hash(topic)
-            // const socWriter = bee.makeSOCWriter(identity.privateKey)
             const socWriter = bee.makeSOCWriter(signer)
             const updateJSON = JSON.stringify(update)
             const data = new TextEncoder().encode(updateJSON)

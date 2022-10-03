@@ -1,5 +1,5 @@
 import { Post, Comment, CombinedPost  } from "./model"
-import { IndexedSnapshot, isAddressInvited } from "./snapshot"
+import { getParentPost, getRootPost, getUserByAddress, IndexedSnapshot } from "./snapshot"
 
 declare var localStorage: any
 declare var hexnews: any
@@ -37,7 +37,7 @@ export function renderPostTitle(post: Post, index?: number): string {
 `
 }
 
-export function renderPostMeta(post: Post, comments: Post[], votes: number): string {
+export function renderPostMeta(post: Post, comments: Post[], votes: number, children: string = ''): string {
     return `
     <tr>
         <td colspan=1></td>
@@ -47,6 +47,7 @@ export function renderPostMeta(post: Post, comments: Post[], votes: number): str
             <a class="user">${post.user}</a>
             |
             <a href="/#/posts/${post.id}">${comments.length} ${pluralize('comment', comments.length)}</a>
+            ${children}
         </td>
     </tr>
 `
@@ -263,13 +264,16 @@ export function renderComment(post: Comment): string {
         <td class="meta" style="padding-left: ${post.level * padding}px">
             <a class="user">${post.user}</a>
             |
-            <a>reply</a>
+            <a href="/#/posts/${post.id}">view</a>
+            |
+            <a onclick="hexnews.openReply('${post.id}')">reply</a>
         </td>
     </tr>
     <tr>
         <td colspan=1></td>
         <td>${renderCommentText(post)}</td>
     </tr>
+    <tr id="reply-${post.id}"></tr>
     `
 }
 
@@ -277,7 +281,27 @@ export function renderCommentText(post: Comment): string {
     return `<span class="comment" style="padding-left: ${post.level * padding}px">${post.text}</span>`
 }
 
+export function renderReply(id: string): string {
+    return `
+        <td colspan=1>&nbsp;</td>
+        <td>
+            <textarea name="text" id="text-${id}" rows="8" cols="80"></textarea>
+            <br><br>
+            <input class="button" type="button" value="add comment" onclick="hexnews.comment('${id}')">
+        </td>
+`
+}
+
 export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comment[], votes: number): string {
+    const rootPost = getRootPost(snapshot, post.id)
+    const parentPost = getParentPost(snapshot, post.id)
+    const root = rootPost && rootPost.id !== post.id
+        ? ` | <a href="/#/posts/${rootPost.id}">on: ${rootPost.title}</a>`
+        : ''
+    const parent = parentPost
+        ? ` | <a href="/#/posts/${parentPost.id}">parent</a>`
+        : ''
+
     const html = `
         <!DOCTYPE html>
         <html>
@@ -290,15 +314,9 @@ export function renderPost(snapshot: IndexedSnapshot, post: Post, comments: Comm
                         <td colspan=1>&nbsp;</td>
                         <td class="post-title">${postTitle(post)}${postSite(post)}</td>
                     </tr>
-                    ${renderPostMeta(post, comments, votes)}
+                    ${renderPostMeta(post, comments, votes, `${parent}${root}`)}
                     <tr>
-                        <td colspan=1>&nbsp;</td>
-                        <td>
-                            <input type="hidden" id="parent" name="parent" value="${post.id}">
-                            <textarea name="text" id="text" rows="8" cols="80"></textarea>
-                            <br><br>
-                            <input class="button" type="button" value="add comment" onclick="hexnews.comment()">
-                        </td>
+                        ${renderReply(post.id)}
                     </tr>
                     <tr><td colspan=3 class="separator"></tr>
                     ${
@@ -367,6 +385,8 @@ export function renderSubmit(snapshot: IndexedSnapshot): string {
 }
 
 export function renderConnect(snapshot: IndexedSnapshot): string {
+    const currentAccount = localStorage.getItem('currentAccount')
+    const currentUser = getUserByAddress(snapshot, currentAccount)
     const html = `
         <!DOCTYPE html>
         <html>
@@ -379,34 +399,25 @@ export function renderConnect(snapshot: IndexedSnapshot): string {
                         <td class="spacer"></td>
                     </tr>
                     <tr>
-                        <td colspan=1></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                        <td></td>
                         <td class="label">
-                            ${ hexnews.signer
-                                ? `Connected to metamask, account: ${typeof localStorage === 'object' && localStorage.getItem('currentAccount')}`
-                                : `Press the connect button to connect with metamask`
-                            }
-                            <br><br>
+                        ${ hexnews.signer
+                            ? `Connected to metamask, account: ${currentAccount}`
+                            : `<input class="button" type="submit" value="connect with metamask" onclick="hexnews.connect()">`
+                        }
                         </td>
                     </tr>
-                    <tr>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                    ${ !hexnews.signer
-                        ? `<tr>
-                            <td></td>
-                            <td><input class="button" type="submit" value="connect" onclick="hexnews.connect()"></td>
-                        </tr>`
-                        : ''
-                    }
                     <tr style="height:20px">
                     </tr>
                     <tr>
                         <td></td>
                         <td class="label">
-                            ${typeof localStorage === 'object' && localStorage.getItem('currentAccount') && isAddressInvited(snapshot, localStorage.getItem('currentAccount'))
-                                ? `Invited`
-                                : `Not invited. Ask someone you know to invite you!`
+                            ${ currentUser
+                                ? `Invited by ${currentUser.invitedBy}`
+                                : `You are not invited. Ask someone you know to invite you!`
                             }
                             <br><br>
                         </td>
